@@ -66,6 +66,7 @@ require (
 	google.golang.org/api v0.18.0
 	google.golang.org/genproto v0.0.0-20200225123651-fc8f55426688 // indirect
 	gopkg.in/yaml.v2 v2.2.8
+	storj.io/uplink v1.0.3
 )
 
 go 1.13
