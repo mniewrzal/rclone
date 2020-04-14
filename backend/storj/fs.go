@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rclone/rclone/fs"
+	"github.com/rclone/rclone/fs/config"
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/configstruct"
 	"github.com/rclone/rclone/fs/fserrors"
@@ -31,7 +32,22 @@ func init() {
 			{
 				Name:     "access",
 				Help:     "Uplink access.",
-				Required: true,
+				Required: false,
+			},
+			{
+				Name:     "satellite-address",
+				Help:     "Satellite address.",
+				Required: false,
+			},
+			{
+				Name:     "api-key",
+				Help:     "API key.",
+				Required: false,
+			},
+			{
+				Name:     "passphrase",
+				Help:     "Encryption passphrase.",
+				Required: false,
 			},
 		},
 	})
@@ -40,6 +56,10 @@ func init() {
 // Options defines the configuration for this backend
 type Options struct {
 	Access string `config:"access"`
+
+	SatelliteAddress string `config:"satellite-address"`
+	ApiKey           string `config:"api-key"`
+	Passphrase       string `config:"passphrase"`
 }
 
 // Fs represents a remote storj server
@@ -68,35 +88,54 @@ var (
 func NewFs(name, root string, m configmap.Mapper) (_ fs.Fs, err error) {
 	ctx := context.Background()
 
+	f := &Fs{
+		name: name,
+		root: root,
+	}
+
 	// Parse config into Options struct
-	opts := new(Options)
-	err = configstruct.Set(m, opts)
+	err = configstruct.Set(m, &f.opts)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse access
-	if opts.Access == "" {
+	var access *uplink.Access
+
+	if f.opts.Access != "" {
+		access, err = uplink.ParseAccess(f.opts.Access)
+		if err != nil {
+			return nil, errors.Wrap(err, "storj: access")
+		}
+	}
+
+	if access == nil && f.opts.SatelliteAddress != "" && f.opts.ApiKey != "" && f.opts.Passphrase != "" {
+		access, err = uplink.RequestAccessWithPassphrase(ctx, f.opts.SatelliteAddress, f.opts.ApiKey, f.opts.Passphrase)
+		if err != nil {
+			return nil, errors.Wrap(err, "storj: access")
+		}
+
+		serializedAccess, err := access.Serialize()
+		if err != nil {
+			return nil, errors.Wrap(err, "storj: access")
+		}
+
+		err = config.SetValueAndSave(f.name, "access", serializedAccess)
+		if err != nil {
+			return nil, errors.Wrap(err, "storj: access")
+		}
+	}
+
+	if access == nil {
 		return nil, errors.New("access not found")
 	}
 
-	access, err := uplink.ParseAccess(opts.Access)
-	if err != nil {
-		return nil, errors.Wrap(err, "storj: access")
-	}
+	f.access = access
 
 	// Setup filesystem and connection to Storj
 	root = norm.NFC.String(root)
 	root = strings.Trim(root, "/")
 
-	f := &Fs{
-		name: name,
-		root: root,
-
-		opts: *opts,
-
-		access: access,
-	}
 	f.features = (&fs.Features{
 		BucketBased:       true,
 		BucketBasedRootOK: true,
