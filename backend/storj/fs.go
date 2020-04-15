@@ -26,7 +26,7 @@ import (
 func init() {
 	fs.Register(&fs.RegInfo{
 		Name:        "storj",
-		Description: "Storj Connection",
+		Description: "Storj Decentralized Cloud Storage",
 		NewFs:       NewFs,
 		Options: []fs.Option{
 			{
