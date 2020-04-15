@@ -58,7 +58,7 @@ type Options struct {
 	Access string `config:"access"`
 
 	SatelliteAddress string `config:"satellite-address"`
-	ApiKey           string `config:"api-key"`
+	APIKey           string `config:"api-key"`
 	Passphrase       string `config:"passphrase"`
 }
 
@@ -109,8 +109,8 @@ func NewFs(name, root string, m configmap.Mapper) (_ fs.Fs, err error) {
 		}
 	}
 
-	if access == nil && f.opts.SatelliteAddress != "" && f.opts.ApiKey != "" && f.opts.Passphrase != "" {
-		access, err = uplink.RequestAccessWithPassphrase(ctx, f.opts.SatelliteAddress, f.opts.ApiKey, f.opts.Passphrase)
+	if access == nil && f.opts.SatelliteAddress != "" && f.opts.APIKey != "" && f.opts.Passphrase != "" {
+		access, err = uplink.RequestAccessWithPassphrase(ctx, f.opts.SatelliteAddress, f.opts.APIKey, f.opts.Passphrase)
 		if err != nil {
 			return nil, errors.Wrap(err, "storj: access")
 		}
