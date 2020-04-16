@@ -32,16 +32,21 @@ func init() {
 			satellite, _ := configMapper.Get("satellite-address")
 			apiKey, _ := configMapper.Get("api-key")
 			passphrase, _ := configMapper.Get("passphrase")
+			accessString, _ := configMapper.Get("access")
+
+			config.FileDeleteKey(name, "satellite-address")
+			config.FileDeleteKey(name, "api-key")
+			config.FileDeleteKey(name, "passphrase")
+
+			if accessString != "" {
+				return
+			}
 
 			access, err := uplink.RequestAccessWithPassphrase(context.TODO(), satellite, apiKey, passphrase)
 			if err != nil {
 				fs.Errorf(nil, "Couldn't create access grant: %v", err)
 				return
 			}
-
-			config.FileDeleteKey(name, "satellite-address")
-			config.FileDeleteKey(name, "api-key")
-			config.FileDeleteKey(name, "passphrase")
 
 			serialziedAccess, err := access.Serialize()
 			if err != nil {
@@ -52,6 +57,11 @@ func init() {
 			configMapper.Set("access", serialziedAccess)
 		},
 		Options: []fs.Option{
+			{
+				Name:     "access",
+				Help:     "Access grant. Leave it blank if you want to use your API Key",
+				Required: false,
+			},
 			{
 				Name:     "satellite-address",
 				Help:     "Satellite address.",
