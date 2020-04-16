@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -88,11 +89,17 @@ func (o *Object) Remote() string {
 
 	// At this point we know that the filesystem itself is at least a
 	// bucket name (and possibly a prefix path).
-	//
-	//                               . This is necessary to remove the slash.
-	//                               |
-	//                               v
-	return o.absolute[len(o.fs.root)+1:]
+	var rootLength int
+	if strings.HasSuffix(o.fs.root, "/") {
+		//                            . This is necessary to remove the slash.
+		//                            |
+		//                            v
+		rootLength = len(o.fs.root) + 1
+	} else {
+		rootLength = len(o.fs.root)
+	}
+
+	return o.absolute[rootLength:]
 }
 
 // ModTime returns the modification date of the file
