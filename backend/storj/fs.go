@@ -28,16 +28,37 @@ func init() {
 		Name:        "storj",
 		Description: "Storj Decentralized Cloud Storage",
 		NewFs:       NewFs,
+		Config: func(name string, configMapper configmap.Mapper) {
+			satellite, _ := configMapper.Get("satellite-address")
+			apiKey, _ := configMapper.Get("api-key")
+			passphrase, _ := configMapper.Get("passphrase")
+
+			access, err := uplink.RequestAccessWithPassphrase(context.TODO(), satellite, apiKey, passphrase)
+			if err != nil {
+				fs.Errorf(nil, "Couldn't create access grant: %v", err)
+				return
+			}
+
+			config.FileDeleteKey(name, "satellite-address")
+			config.FileDeleteKey(name, "api-key")
+			config.FileDeleteKey(name, "passphrase")
+
+			serialziedAccess, err := access.Serialize()
+			if err != nil {
+				fs.Errorf(nil, "Couldn't serialize access grant: %v", err)
+				return
+			}
+
+			configMapper.Set("access", serialziedAccess)
+		},
 		Options: []fs.Option{
-			{
-				Name:     "access",
-				Help:     "Uplink access.",
-				Required: false,
-			},
 			{
 				Name:     "satellite-address",
 				Help:     "Satellite address.",
 				Required: false,
+				Examples: []fs.OptionExample{{
+					Value: "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777",
+				}},
 			},
 			{
 				Name:     "api-key",
@@ -45,9 +66,10 @@ func init() {
 				Required: false,
 			},
 			{
-				Name:     "passphrase",
-				Help:     "Encryption passphrase.",
-				Required: false,
+				Name:       "passphrase",
+				Help:       "Encryption passphrase.",
+				Required:   false,
+				IsPassword: true,
 			},
 		},
 	})
@@ -104,23 +126,6 @@ func NewFs(name, root string, m configmap.Mapper) (_ fs.Fs, err error) {
 
 	if f.opts.Access != "" {
 		access, err = uplink.ParseAccess(f.opts.Access)
-		if err != nil {
-			return nil, errors.Wrap(err, "storj: access")
-		}
-	}
-
-	if access == nil && f.opts.SatelliteAddress != "" && f.opts.APIKey != "" && f.opts.Passphrase != "" {
-		access, err = uplink.RequestAccessWithPassphrase(ctx, f.opts.SatelliteAddress, f.opts.APIKey, f.opts.Passphrase)
-		if err != nil {
-			return nil, errors.Wrap(err, "storj: access")
-		}
-
-		serializedAccess, err := access.Serialize()
-		if err != nil {
-			return nil, errors.Wrap(err, "storj: access")
-		}
-
-		err = config.SetValueAndSave(f.name, "access", serializedAccess)
 		if err != nil {
 			return nil, errors.Wrap(err, "storj: access")
 		}
