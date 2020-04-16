@@ -47,7 +47,6 @@ func init() {
 			config.FileDeleteKey(name, fs.ConfigProvider)
 
 			// satelliteString contains always default and passphrase can be empty
-			log.Println(accessString, apiKey)
 			if accessString != "" || (accessString == "" && apiKey == "") {
 				return
 			}
