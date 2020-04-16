@@ -22,32 +22,96 @@ import (
 	"storj.io/uplink"
 )
 
+var satMap = map[string]string{
+	"us-central-1.tardigrade.io":  "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777",
+	"europe-west-1.tardigrade.io": "12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777",
+	"asia-east-1.tardigrade.io":   "121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777",
+}
+
 // Register with Fs
 func init() {
 	fs.Register(&fs.RegInfo{
 		Name:        "tardigrade",
 		Description: "Tardigrade Decentralized Cloud Storage",
 		NewFs:       NewFs,
+		Config: func(name string, configMapper configmap.Mapper) {
+			satelliteString, _ := configMapper.Get("satellite-address")
+			apiKey, _ := configMapper.Get("api-key")
+			passphrase, _ := configMapper.Get("passphrase")
+			accessString, _ := configMapper.Get("access")
+
+			config.FileDeleteKey(name, "satellite-address")
+			config.FileDeleteKey(name, "api-key")
+			config.FileDeleteKey(name, "passphrase")
+			config.FileDeleteKey(name, fs.ConfigProvider)
+
+			if accessString != "" {
+				return
+			}
+
+			satellite, found := satMap[satelliteString]
+			if !found {
+				satellite = satelliteString
+			}
+
+			access, err := uplink.RequestAccessWithPassphrase(context.TODO(), satellite, apiKey, passphrase)
+			if err != nil {
+				fs.Errorf(nil, "Couldn't create access grant: %v", err)
+				return
+			}
+
+			serialziedAccess, err := access.Serialize()
+			if err != nil {
+				fs.Errorf(nil, "Couldn't serialize access grant: %v", err)
+				return
+			}
+
+			configMapper.Set("access", serialziedAccess)
+		},
 		Options: []fs.Option{
 			{
+				Name: fs.ConfigProvider,
+				Help: "Choose your configuration base.",
+				Examples: []fs.OptionExample{{
+					Value: "Existing Access",
+					Help:  "Use existing access grant to make configuration",
+				}, {
+					Value: "New Access",
+					Help:  "Create access grant with satellite address, API key and passphrase.",
+				},
+				}},
+			{
 				Name:     "access",
-				Help:     "Uplink access.",
+				Help:     "Access Grant.",
 				Required: false,
+				Provider: "Existing Access",
 			},
 			{
 				Name:     "satellite-address",
-				Help:     "Satellite address.",
+				Help:     "Satellite Address. Custom satellite address should match format: <nodeid>@<address>:<port>.",
 				Required: false,
+				Provider: "New Access",
+				Examples: []fs.OptionExample{{
+					Value: "us-central-1.tardigrade.io",
+				}, {
+					Value: "europe-west-1.tardigrade.io",
+				}, {
+					Value: "asia-east-1.tardigrade.io",
+				},
+				},
 			},
 			{
 				Name:     "api-key",
-				Help:     "API key.",
+				Help:     "API Key.",
 				Required: false,
+				Provider: "New Access",
 			},
 			{
-				Name:     "passphrase",
-				Help:     "Encryption passphrase.",
-				Required: false,
+				Name:       "passphrase",
+				Help:       "Encryption Passphrase.",
+				Required:   false,
+				Provider:   "New Access",
+				IsPassword: true,
 			},
 		},
 	})
@@ -108,23 +172,6 @@ func NewFs(name, root string, m configmap.Mapper) (_ fs.Fs, err error) {
 
 	if f.opts.Access != "" {
 		access, err = uplink.ParseAccess(f.opts.Access)
-		if err != nil {
-			return nil, errors.Wrap(err, "storj: access")
-		}
-	}
-
-	if access == nil && f.opts.SatelliteAddress != "" && f.opts.APIKey != "" && f.opts.Passphrase != "" {
-		access, err = uplink.RequestAccessWithPassphrase(ctx, f.opts.SatelliteAddress, f.opts.APIKey, f.opts.Passphrase)
-		if err != nil {
-			return nil, errors.Wrap(err, "storj: access")
-		}
-
-		serializedAccess, err := access.Serialize()
-		if err != nil {
-			return nil, errors.Wrap(err, "storj: access")
-		}
-
-		err = config.SetValueAndSave(f.name, "access", serializedAccess)
 		if err != nil {
 			return nil, errors.Wrap(err, "storj: access")
 		}
