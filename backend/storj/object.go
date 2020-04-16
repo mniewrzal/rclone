@@ -91,12 +91,12 @@ func (o *Object) Remote() string {
 	// bucket name (and possibly a prefix path).
 	var rootLength int
 	if strings.HasSuffix(o.fs.root, "/") {
+		rootLength = len(o.fs.root)
+	} else {
 		//                            . This is necessary to remove the slash.
 		//                            |
 		//                            v
 		rootLength = len(o.fs.root) + 1
-	} else {
-		rootLength = len(o.fs.root)
 	}
 
 	return o.absolute[rootLength:]
