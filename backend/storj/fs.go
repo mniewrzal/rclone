@@ -43,6 +43,7 @@ func init() {
 			config.FileDeleteKey(name, "satellite-address")
 			config.FileDeleteKey(name, "api-key")
 			config.FileDeleteKey(name, "passphrase")
+			config.FileDeleteKey(name, fs.ConfigProvider)
 
 			if accessString != "" {
 				return
@@ -69,14 +70,27 @@ func init() {
 		},
 		Options: []fs.Option{
 			{
+				Name: fs.ConfigProvider,
+				Help: "Choose your configuration base.",
+				Examples: []fs.OptionExample{{
+					Value: "Existing Access",
+					Help:  "Use existing access grant to make configuration",
+				}, {
+					Value: "New Access",
+					Help:  "Create access grant with satellite address, API key and passphrase.",
+				},
+				}},
+			{
 				Name:     "access",
-				Help:     "Access grant. Leave it blank if you want to use your API Key",
+				Help:     "Access Grant.",
 				Required: false,
+				Provider: "Existing Access",
 			},
 			{
 				Name:     "satellite-address",
-				Help:     "Satellite address.",
+				Help:     "Satellite Address. Custom satellite address should match format: <nodeid>@<address>:<port>.",
 				Required: false,
+				Provider: "New Access",
 				Examples: []fs.OptionExample{{
 					Value: "us-central-1.tardigrade.io",
 				}, {
@@ -88,13 +102,15 @@ func init() {
 			},
 			{
 				Name:     "api-key",
-				Help:     "API key.",
+				Help:     "API Key.",
 				Required: false,
+				Provider: "New Access",
 			},
 			{
 				Name:       "passphrase",
-				Help:       "Encryption passphrase.",
+				Help:       "Encryption Passphrase.",
 				Required:   false,
+				Provider:   "New Access",
 				IsPassword: true,
 			},
 		},
