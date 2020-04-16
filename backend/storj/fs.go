@@ -22,6 +22,12 @@ import (
 	"storj.io/uplink"
 )
 
+var satMap = map[string]string{
+	"us-central-1.tardigrade.io":  "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777",
+	"europe-west-1.tardigrade.io": "12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777",
+	"asia-east-1.tardigrade.io":   "121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777",
+}
+
 // Register with Fs
 func init() {
 	fs.Register(&fs.RegInfo{
@@ -29,7 +35,7 @@ func init() {
 		Description: "Storj Decentralized Cloud Storage",
 		NewFs:       NewFs,
 		Config: func(name string, configMapper configmap.Mapper) {
-			satellite, _ := configMapper.Get("satellite-address")
+			satelliteString, _ := configMapper.Get("satellite-address")
 			apiKey, _ := configMapper.Get("api-key")
 			passphrase, _ := configMapper.Get("passphrase")
 			accessString, _ := configMapper.Get("access")
@@ -40,6 +46,11 @@ func init() {
 
 			if accessString != "" {
 				return
+			}
+
+			satellite, found := satMap[satelliteString]
+			if !found {
+				satellite = satelliteString
 			}
 
 			access, err := uplink.RequestAccessWithPassphrase(context.TODO(), satellite, apiKey, passphrase)
@@ -67,8 +78,13 @@ func init() {
 				Help:     "Satellite address.",
 				Required: false,
 				Examples: []fs.OptionExample{{
-					Value: "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777",
-				}},
+					Value: "us-central-1.tardigrade.io",
+				}, {
+					Value: "europe-west-1.tardigrade.io",
+				}, {
+					Value: "asia-east-1.tardigrade.io",
+				},
+				},
 			},
 			{
 				Name:     "api-key",
