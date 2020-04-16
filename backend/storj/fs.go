@@ -88,6 +88,10 @@ var (
 func NewFs(name, root string, m configmap.Mapper) (_ fs.Fs, err error) {
 	ctx := context.Background()
 
+	// Setup filesystem and connection to Storj
+	root = norm.NFC.String(root)
+	root = strings.Trim(root, "/")
+
 	f := &Fs{
 		name: name,
 		root: root,
@@ -131,10 +135,6 @@ func NewFs(name, root string, m configmap.Mapper) (_ fs.Fs, err error) {
 	}
 
 	f.access = access
-
-	// Setup filesystem and connection to Storj
-	root = norm.NFC.String(root)
-	root = strings.Trim(root, "/")
 
 	f.features = (&fs.Features{
 		BucketBased:       true,
