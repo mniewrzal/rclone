@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"path"
 	"strings"
 	"time"
@@ -35,17 +36,19 @@ func init() {
 		Description: "Storj Decentralized Cloud Storage",
 		NewFs:       NewFs,
 		Config: func(name string, configMapper configmap.Mapper) {
-			satelliteString, _ := configMapper.Get("satellite-address")
-			apiKey, _ := configMapper.Get("api-key")
+			satelliteString, _ := configMapper.Get("satellite_address")
+			apiKey, _ := configMapper.Get("api_key")
 			passphrase, _ := configMapper.Get("passphrase")
-			accessString, _ := configMapper.Get("access")
+			accessString, _ := configMapper.Get("access_grant")
 
-			config.FileDeleteKey(name, "satellite-address")
-			config.FileDeleteKey(name, "api-key")
+			config.FileDeleteKey(name, "satellite_address")
+			config.FileDeleteKey(name, "api_key")
 			config.FileDeleteKey(name, "passphrase")
 			config.FileDeleteKey(name, fs.ConfigProvider)
 
-			if accessString != "" {
+			// satelliteString contains always default and passphrase can be empty
+			log.Println(accessString, apiKey)
+			if accessString != "" || (accessString == "" && apiKey == "") {
 				return
 			}
 
@@ -56,61 +59,65 @@ func init() {
 
 			access, err := uplink.RequestAccessWithPassphrase(context.TODO(), satellite, apiKey, passphrase)
 			if err != nil {
-				fs.Errorf(nil, "Couldn't create access grant: %v", err)
-				return
+				log.Fatalf("Couldn't create access grant: %v", err)
 			}
 
 			serialziedAccess, err := access.Serialize()
 			if err != nil {
-				fs.Errorf(nil, "Couldn't serialize access grant: %v", err)
-				return
+				log.Fatalf("Couldn't serialize access grant: %v", err)
 			}
 
-			configMapper.Set("access", serialziedAccess)
+			configMapper.Set("access_grant", serialziedAccess)
 		},
 		Options: []fs.Option{
 			{
-				Name: fs.ConfigProvider,
-				Help: "Choose your configuration base.",
+				Name:     fs.ConfigProvider,
+				Help:     "Choose an authentication method.",
+				Required: true,
+				Default:  "existing",
 				Examples: []fs.OptionExample{{
-					Value: "Existing Access",
-					Help:  "Use existing access grant to make configuration",
+					Value: "existing",
+					Help:  "Use an existing access grant.",
 				}, {
-					Value: "New Access",
-					Help:  "Create access grant with satellite address, API key and passphrase.",
+					Value: "new",
+					Help:  "Create a new access grant from satellite address, API key, and passphrase.",
 				},
 				}},
 			{
-				Name:     "access",
+				Name:     "access_grant",
 				Help:     "Access Grant.",
 				Required: false,
-				Provider: "Existing Access",
+				Provider: "existing",
 			},
 			{
-				Name:     "satellite-address",
-				Help:     "Satellite Address. Custom satellite address should match format: <nodeid>@<address>:<port>.",
+				Name:     "satellite_address",
+				Help:     "Satellite Address. Custom satellite address should match the format: <nodeid>@<address>:<port>.",
 				Required: false,
-				Provider: "New Access",
+				Provider: "new",
+				Default:  "us-central-1.tardigrade.io",
 				Examples: []fs.OptionExample{{
 					Value: "us-central-1.tardigrade.io",
+					Help:  "US Central 1",
 				}, {
 					Value: "europe-west-1.tardigrade.io",
+					Help:  "Europe West 1",
 				}, {
 					Value: "asia-east-1.tardigrade.io",
+					Help:  "Asia East 1",
 				},
 				},
 			},
 			{
-				Name:     "api-key",
+				Name:     "api_key",
 				Help:     "API Key.",
 				Required: false,
-				Provider: "New Access",
+				Provider: "new",
 			},
 			{
 				Name:       "passphrase",
-				Help:       "Encryption Passphrase.",
+				Help:       "Encryption Passphrase. To access existing objects enter passphrase used for uploading.",
 				Required:   false,
-				Provider:   "New Access",
+				Provider:   "new",
 				IsPassword: true,
 			},
 		},
